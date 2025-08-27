@@ -42,12 +42,12 @@ export class TicTacToeGame extends LitElement {
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 100vw;
-      height: 100vh;
+      width: 100%;
+      height: 100%;
       background-color: var(--background-color);
       --transition-speed: 0.3s;
       transition: background 0.5s ease;
-      --board-size: 60vmin;
+      --board-size: 50vmin;
       --cell-size: calc(var(--board-size) / 3);
     }
     
@@ -55,12 +55,16 @@ export class TicTacToeGame extends LitElement {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2vmin;
+      gap: 1.5vmin;
+      max-height: 100%;
+      padding: 2vmin;
+      box-sizing: border-box;
+      overflow-y: auto;
     }
 
     h1 {
       font-family: 'Fredoka One', cursive;
-      font-size: clamp(2rem, 6vmin, 3.5rem);
+      font-size: clamp(1.8rem, 5vmin, 3rem);
       color: var(--text-color);
       margin: 0;
       text-shadow: 2px 2px 0 var(--grid-color);
@@ -68,7 +72,7 @@ export class TicTacToeGame extends LitElement {
     }
 
     .status {
-      font-size: clamp(1.2rem, 3.5vmin, 1.8rem);
+      font-size: clamp(1rem, 3vmin, 1.5rem);
       font-weight: bold;
       padding: 1vmin 0;
       min-height: 1.2em;
@@ -185,8 +189,8 @@ export class TicTacToeGame extends LitElement {
       color: var(--background-color, #1a2a33);
       border: none;
       border-radius: 8px;
-      padding: 1.5vmin 3vmin;
-      font-size: clamp(1rem, 2.5vmin, 1.2rem);
+      padding: 1.2vmin 2.5vmin;
+      font-size: clamp(0.9rem, 2.2vmin, 1.1rem);
       font-weight: bold;
       cursor: pointer;
       box-shadow: 0 4px 0 color-mix(in srgb, var(--o-color) 70%, black);
@@ -267,22 +271,22 @@ export class TicTacToeGame extends LitElement {
       display: flex;
       align-items: center;
       background-color: var(--grid-color);
-      padding: 0.5vmin;
+      padding: 0.4vmin;
       border-radius: 8px;
     }
 
     .setting-label {
       font-weight: bold;
-      font-size: clamp(0.8rem, 2vmin, 1rem);
-      padding: 0 1.5vmin;
+      font-size: clamp(0.7rem, 1.8vmin, 0.9rem);
+      padding: 0 1.2vmin;
     }
 
     .setting-btn {
       background: transparent;
       border: none;
       color: var(--text-color);
-      font-size: clamp(0.8rem, 2vmin, 1rem);
-      padding: 1vmin 1.5vmin;
+      font-size: clamp(0.7rem, 1.8vmin, 0.9rem);
+      padding: 0.8vmin 1.2vmin;
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
@@ -299,10 +303,10 @@ export class TicTacToeGame extends LitElement {
       display: flex;
       gap: 2vmin;
       background-color: var(--grid-color);
-      padding: 1vmin 2vmin;
+      padding: 0.8vmin 1.8vmin;
       border-radius: 8px;
       font-weight: bold;
-      font-size: clamp(0.9rem, 2.2vmin, 1.1rem);
+      font-size: clamp(0.8rem, 2vmin, 1rem);
     }
     
     .scoreboard .divider {
@@ -380,7 +384,7 @@ export class TicTacToeGame extends LitElement {
     this.loadStats();
     this.restartGame(false);
     try {
-      this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      this.ai = new GoogleGenAI({ apiKey: 'AIzaSyBDmcCAlQT4f_0cNtkTUCFkMnwtPR6WYsw' });
     } catch(e) {
       console.error('Failed to initialize GoogleGenAI', e);
     }
