@@ -24,6 +24,7 @@ export class TicTacToeGame extends LitElement {
   @state() private winningCombination: number[] | null = null;
   @state() private isDraw = false;
   @state() private winningLineCoords: LineCoords | null = null;
+  @state() private winningLineLength = 0;
   @state() private audioContext: AudioContext | null = null;
   @state() private isGlassMode = false;
 
@@ -65,7 +66,11 @@ export class TicTacToeGame extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: color var(--transition-speed) ease;
+      transition: color var(--transition-speed) ease, transform 0.3s ease-in-out;
+    }
+
+    .game-wrapper.game-over .status {
+      transform: scale(1.1);
     }
 
     .status .player {
@@ -110,6 +115,14 @@ export class TicTacToeGame extends LitElement {
       padding: 0;
       -webkit-tap-highlight-color: transparent;
     }
+    
+    .game-wrapper.game-over .cell:not(.win) {
+      opacity: 0.5;
+    }
+    
+    .game-wrapper.game-over .cell {
+      cursor: not-allowed;
+    }
 
     .cell:hover:not(.x):not(.o) {
       background-color: color-mix(in srgb, var(--background-color) 80%, white);
@@ -123,8 +136,24 @@ export class TicTacToeGame extends LitElement {
       color: var(--o-color, #f2b137);
     }
 
+    @keyframes glow {
+      from {
+        box-shadow: 0 0 10px -5px var(--glow-color);
+      }
+      to {
+        box-shadow: 0 0 20px 5px var(--glow-color);
+      }
+    }
+
     .cell.win {
-      background-color: var(--grid-color, #10212a);
+      animation: glow 1.2s infinite alternate ease-in-out;
+    }
+
+    .cell.win.x {
+      --glow-color: var(--x-color);
+    }
+    .cell.win.o {
+      --glow-color: var(--o-color);
     }
 
     .restart-button {
@@ -163,8 +192,8 @@ export class TicTacToeGame extends LitElement {
       stroke: var(--win-color);
       stroke-width: 10;
       stroke-linecap: round;
-      stroke-dasharray: 150;
-      stroke-dashoffset: 150;
+      stroke-dasharray: var(--line-length, 0);
+      stroke-dashoffset: var(--line-length, 0);
       transition: stroke-dashoffset 0.5s 0.2s ease-in-out, stroke var(--transition-speed) ease;
       filter: drop-shadow(0 0 5px var(--win-color));
     }
@@ -350,7 +379,8 @@ export class TicTacToeGame extends LitElement {
       if (this.board[a] && this.board[a] === this.board[b] && this.board[a] === this.board[c]) {
         this.winner = this.board[a];
         this.winningCombination = combination;
-        this.calculateWinningLine();
+        // Wait for next frame for elements to be available
+        requestAnimationFrame(() => this.calculateWinningLine());
         this.playSound('win');
         return;
       }
@@ -373,12 +403,19 @@ export class TicTacToeGame extends LitElement {
       const startRect = startCell.getBoundingClientRect();
       const endRect = endCell.getBoundingClientRect();
 
+      const x1 = (startRect.left + startRect.width / 2) - boardRect.left;
+      const y1 = (startRect.top + startRect.height / 2) - boardRect.top;
+      const x2 = (endRect.left + endRect.width / 2) - boardRect.left;
+      const y2 = (endRect.top + endRect.height / 2) - boardRect.top;
+
       this.winningLineCoords = {
-        x1: `${(startRect.left + startRect.width / 2) - boardRect.left}px`,
-        y1: `${(startRect.top + startRect.height / 2) - boardRect.top}px`,
-        x2: `${(endRect.left + endRect.width / 2) - boardRect.left}px`,
-        y2: `${(endRect.top + endRect.height / 2) - boardRect.top}px`,
+        x1: `${x1}px`,
+        y1: `${y1}px`,
+        x2: `${x2}px`,
+        y2: `${y2}px`,
       };
+      
+      this.winningLineLength = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
     }
   }
 
@@ -390,6 +427,7 @@ export class TicTacToeGame extends LitElement {
     this.winningCombination = null;
     this.isDraw = false;
     this.winningLineCoords = null;
+    this.winningLineLength = 0;
     this.playSound('restart');
   }
   
@@ -412,11 +450,16 @@ export class TicTacToeGame extends LitElement {
   }
 
   override render() {
+    const gameWrapperClasses = {
+      'game-wrapper': true,
+      'game-over': !!this.winner || this.isDraw,
+    };
+
     return html`
       <div class="glass-mode-toggle" @click=${this.toggleGlassMode} role="button" aria-pressed="${this.isGlassMode}" aria-label="Toggle visual theme">
         ${svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.4,3.4l-3,3l-0.9-0.9c-0.4-0.4-1-0.4-1.4,0s-0.4,1,0,1.4l0.9,0.9l-3,3c-0.4,0.4-0.4,1,0,1.4s1,0.4,1.4,0l3-3l0.9,0.9 c0.4,0.4,1,0.4,1.4,0s0.4-1,0-1.4L8,8.8l3-3c0.4-0.4,0.4-1,0-1.4S9.8,3,9.4,3.4z M19.7,8.3c-0.4-0.4-1-0.4-1.4,0l-8.6,8.6 c-0.4,0.4-0.4,1,0,1.4s1,0.4,1.4,0l8.6-8.6C20.1,9.3,20.1,8.7,19.7,8.3z M18,2l-1.5,4.5L12,8l4.5,1.5L18,14l1.5-4.5L24,8l-4.5-1.5 L18,2z M12,14l-1.1,3.2L7.7,18.3l3.2,1.1L12,22.6l1.1-3.2l3.2-1.1l-3.2-1.1L12,14z" fill="currentColor"></path></svg>`}
       </div>
-      <div class="game-wrapper">
+      <div class=${classMap(gameWrapperClasses)}>
         <h1>Tic-Tac-Toe</h1>
         <div class="status">${this.getStatusMessage()}</div>
         <div class="board-container">
@@ -436,6 +479,7 @@ export class TicTacToeGame extends LitElement {
             <svg class="line-svg">
               <line
                 class="winning-line ${this.winner ? 'visible' : ''}"
+                style="--line-length: ${this.winningLineLength}px;"
                 x1=${this.winningLineCoords.x1}
                 y1=${this.winningLineCoords.y1}
                 x2=${this.winningLineCoords.x2}
