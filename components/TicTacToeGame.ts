@@ -13,41 +13,6 @@ const WINNING_COMBINATIONS = [
   [0, 4, 8], [2, 4, 6], // diagonals
 ];
 
-const colorThemes = [
-  { // Default
-    '--background-color': '#1a2a33',
-    '--grid-color': '#10212a',
-    '--x-color': '#31c3bd',
-    '--o-color': '#f2b137',
-    '--text-color': '#a8bec9',
-    '--win-color': '#f2b137',
-  },
-  { // Sunset
-    '--background-color': '#2c2138',
-    '--grid-color': '#1e1526',
-    '--x-color': '#f88c7f',
-    '--o-color': '#f2b137',
-    '--text-color': '#d8c7e3',
-    '--win-color': '#f88c7f',
-  },
-  { // Forest
-    '--background-color': '#2a3d33',
-    '--grid-color': '#1d2a23',
-    '--x-color': '#a1c181',
-    '--o-color': '#fcca46',
-    '--text-color': '#e0e0d6',
-    '--win-color': '#a1c181',
-  },
-  { // Classic
-    '--background-color': '#eaeaea',
-    '--grid-color': '#d4d4d4',
-    '--x-color': '#e53935',
-    '--o-color': '#1e88e5',
-    '--text-color': '#333333',
-    '--win-color': '#e53935',
-  }
-];
-
 type LineCoords = { x1: string, y1: string, x2: string, y2: string };
 
 @customElement('tic-tac-toe-game')
@@ -59,22 +24,33 @@ export class TicTacToeGame extends LitElement {
   @state() private winningCombination: number[] | null = null;
   @state() private isDraw = false;
   @state() private winningLineCoords: LineCoords | null = null;
-  @state() private currentThemeIndex = 0;
   @state() private audioContext: AudioContext | null = null;
+  @state() private isGlassMode = false;
 
   static override styles = css`
     :host {
       display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100vw;
+      height: 100vh;
+      background-color: var(--background-color);
+      --transition-speed: 0.3s;
+      transition: background 0.5s ease;
+      --board-size: 60vmin;
+      --cell-size: calc(var(--board-size) / 3);
+    }
+    
+    .game-wrapper {
+      display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2rem;
-      --transition-speed: 0.3s;
-      transition: color var(--transition-speed) ease, background-color var(--transition-speed) ease;
+      gap: 2vmin;
     }
 
     h1 {
       font-family: 'Fredoka One', cursive;
-      font-size: clamp(2rem, 10vw, 3.5rem);
+      font-size: clamp(2rem, 7vmin, 3.5rem);
       color: var(--text-color);
       margin: 0;
       text-shadow: 2px 2px 0 var(--grid-color);
@@ -82,9 +58,9 @@ export class TicTacToeGame extends LitElement {
     }
 
     .status {
-      font-size: clamp(1.2rem, 5vw, 1.8rem);
+      font-size: clamp(1.2rem, 3.5vmin, 1.8rem);
       font-weight: bold;
-      height: 2rem;
+      padding: 1vmin 0;
       color: var(--text-color);
       display: flex;
       align-items: center;
@@ -109,14 +85,14 @@ export class TicTacToeGame extends LitElement {
     .board {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      width: var(--board-size, 500px);
-      height: var(--board-size, 500px);
-      gap: 1rem;
+      width: var(--board-size);
+      height: var(--board-size);
+      gap: 1.5vmin;
       background-color: var(--grid-color, #10212a);
-      padding: 1rem;
+      padding: 1.5vmin;
       border-radius: 10px;
       box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
-      transition: background-color var(--transition-speed) ease;
+      transition: all var(--transition-speed) ease;
     }
 
     .cell {
@@ -128,7 +104,7 @@ export class TicTacToeGame extends LitElement {
       justify-content: center;
       align-items: center;
       font-family: 'Fredoka One', cursive;
-      font-size: calc(var(--cell-size, 160px) * 0.6);
+      font-size: calc(var(--cell-size) * 0.6);
       font-weight: bold;
       transition: all var(--transition-speed) ease;
       padding: 0;
@@ -156,8 +132,8 @@ export class TicTacToeGame extends LitElement {
       color: var(--background-color, #1a2a33);
       border: none;
       border-radius: 8px;
-      padding: 0.8rem 1.6rem;
-      font-size: 1.2rem;
+      padding: 1.5vmin 3vmin;
+      font-size: clamp(1rem, 2.5vmin, 1.2rem);
       font-weight: bold;
       cursor: pointer;
       box-shadow: 0 4px 0 color-mix(in srgb, var(--o-color) 70%, black);
@@ -196,224 +172,286 @@ export class TicTacToeGame extends LitElement {
     .winning-line.visible {
       stroke-dashoffset: 0;
     }
+
+    .glass-mode-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.1);
+      transition: background 0.3s ease;
+    }
+    
+    .glass-mode-toggle:hover {
+      background: rgba(0,0,0,0.2);
+    }
+
+    .glass-mode-toggle svg {
+      width: 32px;
+      height: 32px;
+      fill: var(--text-color);
+      transition: transform 0.3s ease, fill var(--transition-speed) ease;
+    }
+
+    .glass-mode-toggle:hover svg {
+      transform: scale(1.2) rotate(15deg);
+    }
+    
+    /* --- Glass Mode Styles --- */
+
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    :host(.glass-mode) {
+      background: linear-gradient(-45deg, #000000, #1a1a1a, #2c2c2c, #000000);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+    }
+
+    :host(.glass-mode) .board {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    
+    :host(.glass-mode) .cell {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    :host(.glass-mode) .cell:hover:not(.x):not(.o) {
+      background: rgba(255, 255, 255, 0.15);
+      box-shadow: inset 0 0 0 2px white;
+    }
+    
+    :host(.glass-mode) h1,
+    :host(.glass-mode) .status,
+    :host(.glass-mode) .glass-mode-toggle svg {
+      color: #fff;
+      fill: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    
+    :host(.glass-mode) .restart-button {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    }
+
+    :host(.glass-mode) .restart-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    
+    :host(.glass-mode) .restart-button:active {
+       box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+    }
+
   `;
 
-  override firstUpdated() {
-    this.applyTheme();
+  override connectedCallback() {
+    super.connectedCallback();
+    this.restartGame();
   }
-  
-  private applyTheme() {
-    const theme = colorThemes[this.currentThemeIndex];
-    for (const [key, value] of Object.entries(theme)) {
-      document.documentElement.style.setProperty(key, value);
-    }
-  }
-
-  // --- Audio Methods ---
 
   private initAudio() {
     if (!this.audioContext) {
+      // FIX: Cast window to any to access vendor-prefixed webkitAudioContext for older browser compatibility.
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
   }
 
-  private playSound(notes: { freq: number, duration: number, delay: number }[], type: OscillatorType = 'sine') {
-    if (!this.audioContext || this.audioContext.state === 'suspended') {
-      this.audioContext?.resume();
-    }
+  private playSound(type: 'click' | 'win' | 'draw' | 'restart' | 'magic') {
     if (!this.audioContext) return;
-    
-    const now = this.audioContext.currentTime;
 
-    notes.forEach(note => {
-      const oscillator = this.audioContext!.createOscillator();
-      const gainNode = this.audioContext!.createGain();
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
 
-      oscillator.connect(gainNode);
-      gainNode.connect(this.audioContext!.destination);
+    switch (type) {
+      case 'click':
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(this.currentPlayer === 'X' ? 440 : 660, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.1);
+        break;
+      case 'win':
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(523.25, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.4, this.audioContext.currentTime + 0.01);
+        setTimeout(() => {
+          oscillator.frequency.setValueAtTime(659.25, this.audioContext.currentTime);
+        }, 100);
+        setTimeout(() => {
+          oscillator.frequency.setValueAtTime(783.99, this.audioContext.currentTime);
+        }, 200);
+        setTimeout(() => {
+          gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.1);
+        }, 300);
+        break;
+      case 'draw':
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
+        oscillator.frequency.exponentialRampToValueAtTime(150, this.audioContext.currentTime + 0.3);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.3);
+        break;
+      case 'restart':
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
+        oscillator.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.2);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.2);
+        break;
+      case 'magic':
+        oscillator.type = 'sine';
+        const startFreq = this.isGlassMode ? 800 : 400;
+        const endFreq = this.isGlassMode ? 400 : 800;
+        oscillator.frequency.setValueAtTime(startFreq, this.audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(endFreq, this.audioContext.currentTime + 0.2);
+        gainNode.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.2);
+        break;
+    }
 
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(note.freq, now + note.delay);
-
-      gainNode.gain.setValueAtTime(0.3, now + note.delay);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + note.delay + note.duration);
-
-      oscillator.start(now + note.delay);
-      oscillator.stop(now + note.delay + note.duration);
-    });
+    oscillator.start();
+    oscillator.stop(this.audioContext.currentTime + 0.5);
   }
-
-  private playClickSound(player: 'X' | 'O') {
-    const freq = player === 'X' ? 880 : 660;
-    this.playSound([{ freq, duration: 0.1, delay: 0 }], 'triangle');
-  }
-
-  private playWinSound() {
-    this.playSound([
-      { freq: 523.25, duration: 0.1, delay: 0 }, // C5
-      { freq: 659.25, duration: 0.1, delay: 0.1 }, // E5
-      { freq: 783.99, duration: 0.1, delay: 0.2 }, // G5
-      { freq: 1046.50, duration: 0.15, delay: 0.3 }, // C6
-    ]);
-  }
-
-  private playDrawSound() {
-    this.playSound([
-      { freq: 349.23, duration: 0.1, delay: 0 }, // F4
-      { freq: 261.63, duration: 0.15, delay: 0.15 }, // C4
-    ]);
-  }
-
-  private playRestartSound() {
-    this.playSound([{ freq: 440, duration: 0.05, delay: 0 }, { freq: 880, duration: 0.1, delay: 0.05 }]);
-  }
-
-  // --- Game Logic ---
 
   private handleCellClick(index: number) {
-    this.initAudio(); // Initialize on first user interaction
-
+    this.initAudio();
     if (this.board[index] || this.winner) {
       return;
     }
-    
-    this.playClickSound(this.currentPlayer);
 
     const newBoard = [...this.board];
     newBoard[index] = this.currentPlayer;
     this.board = newBoard;
+    this.playSound('click');
 
-    this.checkGameState();
+    this.checkWinner();
+    if (!this.winner) {
+      this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+    }
   }
 
-  private checkGameState() {
+  private checkWinner() {
     for (const combination of WINNING_COMBINATIONS) {
       const [a, b, c] = combination;
-      if (
-        this.board[a] &&
-        this.board[a] === this.board[b] &&
-        this.board[a] === this.board[c]
-      ) {
-        this.winner = this.board[a] as 'X' | 'O';
+      if (this.board[a] && this.board[a] === this.board[b] && this.board[a] === this.board[c]) {
+        this.winner = this.board[a];
         this.winningCombination = combination;
-        this.setWinningLine(combination);
-        this.playWinSound();
+        this.calculateWinningLine();
+        this.playSound('win');
         return;
       }
     }
 
-    if (this.board.every((cell) => cell)) {
+    if (this.board.every(cell => cell !== null)) {
       this.isDraw = true;
-      this.playDrawSound();
-    } else {
-      this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+      this.playSound('draw');
+    }
+  }
+
+  private calculateWinningLine() {
+    if (!this.winningCombination) return;
+    const [start, _, end] = this.winningCombination;
+    const startCell = this.shadowRoot?.querySelectorAll('.cell')[start];
+    const endCell = this.shadowRoot?.querySelectorAll('.cell')[end];
+    const boardRect = this.shadowRoot?.querySelector('.board')?.getBoundingClientRect();
+
+    if (startCell && endCell && boardRect) {
+      const startRect = startCell.getBoundingClientRect();
+      const endRect = endCell.getBoundingClientRect();
+
+      this.winningLineCoords = {
+        x1: `${(startRect.left + startRect.width / 2) - boardRect.left}px`,
+        y1: `${(startRect.top + startRect.height / 2) - boardRect.top}px`,
+        x2: `${(endRect.left + endRect.width / 2) - boardRect.left}px`,
+        y2: `${(endRect.top + endRect.height / 2) - boardRect.top}px`,
+      };
     }
   }
 
   private restartGame() {
     this.initAudio();
-    this.playRestartSound();
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
     this.winner = null;
     this.winningCombination = null;
     this.isDraw = false;
     this.winningLineCoords = null;
-    this.currentThemeIndex = (this.currentThemeIndex + 1) % colorThemes.length;
-    this.applyTheme();
+    this.playSound('restart');
+  }
+  
+  private toggleGlassMode() {
+    this.initAudio();
+    this.isGlassMode = !this.isGlassMode;
+    this.classList.toggle('glass-mode', this.isGlassMode);
+    this.playSound('magic');
   }
 
-  private setWinningLine(combination: number[]) {
-    const [start, , end] = combination;
-    const pos = ['16.66%', '50%', '83.33%'];
-    const startX = pos[start % 3];
-    const startY = pos[Math.floor(start / 3)];
-    const endX = pos[end % 3];
-    const endY = pos[Math.floor(end / 3)];
-
-    const [a, b] = [
-      { x: parseFloat(startX), y: parseFloat(startY) },
-      { x: parseFloat(endX), y: parseFloat(endY) },
-    ].sort((p1, p2) => p1.x - p2.x || p1.y - p2.y);
-
-    const angle = Math.atan2(b.y - a.y, b.x - a.x);
-    const extension = 10;
-
-    const extendedA = {
-      x: a.x - Math.cos(angle) * extension,
-      y: a.y - Math.sin(angle) * extension,
-    };
-    const extendedB = {
-      x: b.x + Math.cos(angle) * extension,
-      y: b.y + Math.sin(angle) * extension,
-    };
-
-    this.winningLineCoords = {
-      x1: `${extendedA.x}%`, y1: `${extendedA.y}%`,
-      x2: `${extendedB.x}%`, y2: `${extendedB.y}%`,
-    };
-  }
-
-  private renderStatus() {
+  private getStatusMessage() {
     if (this.winner) {
-      return html`<span class="player ${this.winner.toLowerCase()}">${this.winner}</span> WINS!`;
+      return html`WINNER: <span class="player ${this.winner.toLowerCase()}">${this.winner}</span>!`;
     }
     if (this.isDraw) {
+      // FIX: The string literal was causing parsing errors. Using the html tag helper for consistency.
       return html`IT'S A DRAW!`;
     }
-    return html`IT'S <span class="player ${this.currentPlayer.toLowerCase()}">${this.currentPlayer}</span>'S TURN`;
+    return html`TURN: <span class="player ${this.currentPlayer.toLowerCase()}">${this.currentPlayer}</span>`;
   }
 
   override render() {
     return html`
-      <h1>Tic-Tac-Toe</h1>
-      <div class="status">${this.renderStatus()}</div>
-      <div class="board-container">
-        <div class="board">
-          ${this.board.map((cell, index) => {
-            const isWinningCell = this.winningCombination?.includes(index);
-            const classes = {
-              cell: true,
-              x: cell === 'X',
-              o: cell === 'O',
-              win: !!isWinningCell,
-            };
-            return html`
-              <button
-                class=${classMap(classes)}
-                @click=${() => this.handleCellClick(index)}
-                ?disabled=${!!cell || !!this.winner}
-                aria-label="Cell ${index + 1}, ${cell ? 'filled with ' + cell : 'empty'}"
-              >
-                ${cell}
-              </button>
-            `;
-          })}
-        </div>
-        ${this.renderWinningLine()}
+      <div class="glass-mode-toggle" @click=${this.toggleGlassMode} role="button" aria-pressed="${this.isGlassMode}" aria-label="Toggle visual theme">
+        ${svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.4,3.4l-3,3l-0.9-0.9c-0.4-0.4-1-0.4-1.4,0s-0.4,1,0,1.4l0.9,0.9l-3,3c-0.4,0.4-0.4,1,0,1.4s1,0.4,1.4,0l3-3l0.9,0.9 c0.4,0.4,1,0.4,1.4,0s0.4-1,0-1.4L8,8.8l3-3c0.4-0.4,0.4-1,0-1.4S9.8,3,9.4,3.4z M19.7,8.3c-0.4-0.4-1-0.4-1.4,0l-8.6,8.6 c-0.4,0.4-0.4,1,0,1.4s1,0.4,1.4,0l8.6-8.6C20.1,9.3,20.1,8.7,19.7,8.3z M18,2l-1.5,4.5L12,8l4.5,1.5L18,14l1.5-4.5L24,8l-4.5-1.5 L18,2z M12,14l-1.1,3.2L7.7,18.3l3.2,1.1L12,22.6l1.1-3.2l3.2-1.1l-3.2-1.1L12,14z" fill="currentColor"></path></svg>`}
       </div>
-      <button class="restart-button" @click=${this.restartGame}>Restart Game</button>
-    `;
-  }
-  
-  private renderWinningLine() {
-    if (!this.winningLineCoords) return null;
-    return svg`
-      <svg class="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <line
-          class="winning-line ${this.winner ? 'visible' : ''}"
-          x1=${this.winningLineCoords.x1}
-          y1=${this.winningLineCoords.y1}
-          x2=${this.winningLineCoords.x2}
-          y2=${this.winningLineCoords.y2}
-        />
-      </svg>
+      <div class="game-wrapper">
+        <h1>Tic-Tac-Toe</h1>
+        <div class="status">${this.getStatusMessage()}</div>
+        <div class="board-container">
+          <div class="board">
+            ${this.board.map((player, index) => html`
+              <button
+                class="cell ${player ? player.toLowerCase() : ''} ${this.winningCombination?.includes(index) ? 'win' : ''}"
+                @click=${() => this.handleCellClick(index)}
+                ?disabled=${!!player || !!this.winner}
+                aria-label="Cell ${index + 1}, ${player ? 'played by ' + player : 'empty'}"
+              >
+                ${player || ''}
+              </button>
+            `)}
+          </div>
+          ${this.winningLineCoords ? html`
+            <svg class="line-svg">
+              <line
+                class="winning-line ${this.winner ? 'visible' : ''}"
+                x1=${this.winningLineCoords.x1}
+                y1=${this.winningLineCoords.y1}
+                x2=${this.winningLineCoords.x2}
+                y2=${this.winningLineCoords.y2}
+              />
+            </svg>
+          ` : ''}
+        </div>
+        <button class="restart-button" @click=${this.restartGame}>Restart Game</button>
+      </div>
     `;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'tic-tac-toe-game': TicTacToeGame;
+    'tic-tac-toe-game': TicTacToeGame
   }
 }

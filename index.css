@@ -1,6 +1,4 @@
 :root {
-  --board-size: min(80vw, 500px);
-  --cell-size: calc(var(--board-size) / 3);
   --background-color: #1a2a33;
   --grid-color: #10212a;
   --x-color: #31c3bd;
