@@ -137,16 +137,22 @@ export class TicTacToeGame extends LitElement {
     }
 
     @keyframes glow {
-      from {
-        box-shadow: 0 0 10px -5px var(--glow-color);
+      0% {
+        box-shadow: 0 0 8px -4px var(--glow-color);
+        background-color: var(--background-color);
       }
-      to {
+      50% {
         box-shadow: 0 0 20px 5px var(--glow-color);
+        background-color: color-mix(in srgb, var(--background-color) 80%, var(--glow-color));
+      }
+      100% {
+        box-shadow: 0 0 8px -4px var(--glow-color);
+        background-color: var(--background-color);
       }
     }
 
     .cell.win {
-      animation: glow 1.2s infinite alternate ease-in-out;
+      animation: glow 2.5s infinite ease-in-out;
     }
 
     .cell.win.x {
