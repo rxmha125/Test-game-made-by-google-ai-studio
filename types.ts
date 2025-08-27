@@ -22,3 +22,6 @@ export interface ControlChange {
   cc: number;
   value: number;
 }
+
+export type GameMode = 'classic' | 'gravity';
+export type Opponent = 'player' | 'ai';

@@ -5,7 +5,8 @@
 import { css, html, LitElement, svg } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import type { Player } from '../types';
+import { GoogleGenAI } from "@google/genai";
+import type { Player, GameMode, Opponent } from '../types';
 
 const WINNING_COMBINATIONS = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
@@ -27,6 +28,14 @@ export class TicTacToeGame extends LitElement {
   @state() private winningLineLength = 0;
   @state() private audioContext: AudioContext | null = null;
   @state() private isGlassMode = false;
+  
+  // New Features State
+  @state() private gameMode: GameMode = 'classic';
+  @state() private opponent: Opponent = 'player';
+  @state() private stats = { x: 0, o: 0, draws: 0 };
+  @state() private isAiThinking = false;
+  private ai: GoogleGenAI | null = null;
+
 
   static override styles = css`
     :host {
@@ -51,7 +60,7 @@ export class TicTacToeGame extends LitElement {
 
     h1 {
       font-family: 'Fredoka One', cursive;
-      font-size: clamp(2rem, 7vmin, 3.5rem);
+      font-size: clamp(2rem, 6vmin, 3.5rem);
       color: var(--text-color);
       margin: 0;
       text-shadow: 2px 2px 0 var(--grid-color);
@@ -62,6 +71,7 @@ export class TicTacToeGame extends LitElement {
       font-size: clamp(1.2rem, 3.5vmin, 1.8rem);
       font-weight: bold;
       padding: 1vmin 0;
+      min-height: 1.2em;
       color: var(--text-color);
       display: flex;
       align-items: center;
@@ -99,6 +109,10 @@ export class TicTacToeGame extends LitElement {
       box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
       transition: all var(--transition-speed) ease;
     }
+    
+    .board.thinking {
+      cursor: progress;
+    }
 
     .cell {
       background-color: var(--background-color, #1a2a33);
@@ -123,8 +137,12 @@ export class TicTacToeGame extends LitElement {
     .game-wrapper.game-over .cell {
       cursor: not-allowed;
     }
+    
+    .cell:disabled {
+      cursor: not-allowed;
+    }
 
-    .cell:hover:not(.x):not(.o) {
+    .cell:hover:not(:disabled):not(.x):not(.o) {
       background-color: color-mix(in srgb, var(--background-color) 80%, white);
     }
 
@@ -235,6 +253,62 @@ export class TicTacToeGame extends LitElement {
       transform: scale(1.2) rotate(15deg);
     }
     
+    /* --- New Features CSS --- */
+    
+    .game-settings {
+      display: flex;
+      gap: 3vmin;
+      margin-bottom: 1vmin;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .setting-group {
+      display: flex;
+      align-items: center;
+      background-color: var(--grid-color);
+      padding: 0.5vmin;
+      border-radius: 8px;
+    }
+
+    .setting-label {
+      font-weight: bold;
+      font-size: clamp(0.8rem, 2vmin, 1rem);
+      padding: 0 1.5vmin;
+    }
+
+    .setting-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-color);
+      font-size: clamp(0.8rem, 2vmin, 1rem);
+      padding: 1vmin 1.5vmin;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all var(--transition-speed) ease;
+    }
+    
+    .setting-btn.active {
+      background-color: var(--text-color);
+      color: var(--grid-color);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .scoreboard {
+      display: flex;
+      gap: 2vmin;
+      background-color: var(--grid-color);
+      padding: 1vmin 2vmin;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: clamp(0.9rem, 2.2vmin, 1.1rem);
+    }
+    
+    .scoreboard .divider {
+      opacity: 0.5;
+    }
+
     /* --- Glass Mode Styles --- */
 
     @keyframes gradient {
@@ -249,7 +323,9 @@ export class TicTacToeGame extends LitElement {
       animation: gradient 15s ease infinite;
     }
 
-    :host(.glass-mode) .board {
+    :host(.glass-mode) .board,
+    :host(.glass-mode) .setting-group,
+    :host(.glass-mode) .scoreboard {
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -262,19 +338,27 @@ export class TicTacToeGame extends LitElement {
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    :host(.glass-mode) .cell:hover:not(.x):not(.o) {
+    :host(.glass-mode) .cell:hover:not(:disabled):not(.x):not(.o) {
       background: rgba(255, 255, 255, 0.15);
       box-shadow: inset 0 0 0 2px white;
     }
     
     :host(.glass-mode) h1,
     :host(.glass-mode) .status,
-    :host(.glass-mode) .glass-mode-toggle svg {
+    :host(.glass-mode) .glass-mode-toggle svg,
+    :host(.glass-mode) .setting-btn,
+    :host(.glass-mode) .scoreboard,
+    :host(.glass-mode) .setting-label {
       color: #fff;
       fill: #fff;
       text-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
     
+    :host(.glass-mode) .setting-btn.active {
+      background-color: #fff;
+      color: #000;
+    }
+
     :host(.glass-mode) .restart-button {
       background: rgba(255, 255, 255, 0.2);
       color: #fff;
@@ -293,7 +377,24 @@ export class TicTacToeGame extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    this.restartGame();
+    this.loadStats();
+    this.restartGame(false);
+    try {
+      this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    } catch(e) {
+      console.error('Failed to initialize GoogleGenAI', e);
+    }
+  }
+
+  private loadStats() {
+    const savedStats = localStorage.getItem('ticTacToeStats');
+    if (savedStats) {
+      this.stats = JSON.parse(savedStats);
+    }
+  }
+
+  private saveStats() {
+    localStorage.setItem('ticTacToeStats', JSON.stringify(this.stats));
   }
 
   private initAudio() {
@@ -362,21 +463,43 @@ export class TicTacToeGame extends LitElement {
     oscillator.stop(this.audioContext.currentTime + 0.5);
   }
 
-  private handleCellClick(index: number) {
+  private handleCellClick(index: number, isAiMove = false) {
     this.initAudio();
-    if (this.board[index] || this.winner) {
-      return;
+    if (this.isAiThinking || this.winner || this.isDraw) return;
+    if (this.opponent === 'ai' && this.currentPlayer === 'O' && !isAiMove) return;
+
+    let moveIndex = index;
+    if (this.gameMode === 'gravity') {
+      const gravityIndex = this.getGravityIndex(index);
+      if (gravityIndex === -1) return; // Column full
+      moveIndex = gravityIndex;
     }
+    
+    if (this.board[moveIndex]) return;
 
     const newBoard = [...this.board];
-    newBoard[index] = this.currentPlayer;
+    newBoard[moveIndex] = this.currentPlayer;
     this.board = newBoard;
     this.playSound('click');
 
     this.checkWinner();
-    if (!this.winner) {
+    if (!this.winner && !this.isDraw) {
       this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+      if (this.opponent === 'ai' && this.currentPlayer === 'O') {
+        this.triggerAiMove();
+      }
     }
+  }
+  
+  private getGravityIndex(index: number): number {
+    const col = index % 3;
+    for (let row = 2; row >= 0; row--) {
+      const landingIndex = row * 3 + col;
+      if (!this.board[landingIndex]) {
+        return landingIndex;
+      }
+    }
+    return -1; // Column is full
   }
 
   private checkWinner() {
@@ -385,9 +508,11 @@ export class TicTacToeGame extends LitElement {
       if (this.board[a] && this.board[a] === this.board[b] && this.board[a] === this.board[c]) {
         this.winner = this.board[a];
         this.winningCombination = combination;
-        // Wait for next frame for elements to be available
         requestAnimationFrame(() => this.calculateWinningLine());
         this.playSound('win');
+        if (this.winner === 'X') this.stats.x++;
+        if (this.winner === 'O') this.stats.o++;
+        this.saveStats();
         return;
       }
     }
@@ -395,6 +520,57 @@ export class TicTacToeGame extends LitElement {
     if (this.board.every(cell => cell !== null)) {
       this.isDraw = true;
       this.playSound('draw');
+      this.stats.draws++;
+      this.saveStats();
+    }
+  }
+  
+  private async triggerAiMove() {
+    if (this.winner || this.isDraw) return;
+    this.isAiThinking = true;
+    await new Promise(resolve => setTimeout(resolve, 500)); // UX delay
+
+    if (!this.ai) {
+      console.error("AI not initialized.");
+      this.makeRandomMove();
+      this.isAiThinking = false;
+      return;
+    }
+
+    const boardString = this.board.map(p => p ? `"${p}"` : 'null').join(', ');
+    const prompt = `You are an unbeatable Tic-Tac-Toe AI expert. It is your turn to play as 'O'. The current board is represented by an array of 9 items with indices 0-8 from top-left to bottom-right. 'X' is the human player. 'O' is you. 'null' means the cell is empty. The current board state is: [${boardString}]. Which cell index (0-8) is your best strategic move? Return ONLY a single number representing the index of your move.`;
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } }
+      });
+      const moveText = response.text.trim();
+      const aiMove = parseInt(moveText, 10);
+
+      if (isNaN(aiMove) || aiMove < 0 || aiMove > 8 || this.board[aiMove] !== null) {
+        console.warn('AI returned invalid move:', moveText, '. Making random move.');
+        this.makeRandomMove();
+      } else {
+        this.handleCellClick(aiMove, true);
+      }
+    } catch (error) {
+      console.error('Error getting AI move:', error);
+      this.makeRandomMove();
+    } finally {
+      this.isAiThinking = false;
+    }
+  }
+
+  private makeRandomMove() {
+    const emptyCells = this.board
+      .map((cell, index) => (cell === null ? index : null))
+      .filter(index => index !== null);
+    
+    if (emptyCells.length > 0) {
+      const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)]!;
+      this.handleCellClick(randomIndex, true);
     }
   }
 
@@ -414,18 +590,12 @@ export class TicTacToeGame extends LitElement {
       const x2 = (endRect.left + endRect.width / 2) - boardRect.left;
       const y2 = (endRect.top + endRect.height / 2) - boardRect.top;
 
-      this.winningLineCoords = {
-        x1: `${x1}px`,
-        y1: `${y1}px`,
-        x2: `${x2}px`,
-        y2: `${y2}px`,
-      };
-      
+      this.winningLineCoords = { x1: `${x1}px`, y1: `${y1}px`, x2: `${x2}px`, y2: `${y2}px` };
       this.winningLineLength = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
     }
   }
 
-  private restartGame() {
+  private restartGame(playSound = true) {
     this.initAudio();
     this.board = Array(9).fill(null);
     this.currentPlayer = 'X';
@@ -434,7 +604,7 @@ export class TicTacToeGame extends LitElement {
     this.isDraw = false;
     this.winningLineCoords = null;
     this.winningLineLength = 0;
-    this.playSound('restart');
+    if (playSound) this.playSound('restart');
   }
   
   private toggleGlassMode() {
@@ -443,8 +613,23 @@ export class TicTacToeGame extends LitElement {
     this.classList.toggle('glass-mode', this.isGlassMode);
     this.playSound('magic');
   }
+  
+  private setOpponent(opponent: Opponent) {
+    if (this.opponent === opponent) return;
+    this.opponent = opponent;
+    this.restartGame();
+  }
+
+  private setGameMode(mode: GameMode) {
+    if (this.gameMode === mode) return;
+    this.gameMode = mode;
+    this.restartGame();
+  }
 
   private getStatusMessage() {
+    if (this.isAiThinking) {
+      return html`AI IS THINKING...`;
+    }
     if (this.winner) {
       return html`WINNER: <span class="player ${this.winner.toLowerCase()}">${this.winner}</span>!`;
     }
@@ -467,14 +652,36 @@ export class TicTacToeGame extends LitElement {
       </div>
       <div class=${classMap(gameWrapperClasses)}>
         <h1>Tic-Tac-Toe</h1>
+        
+        <div class="game-settings">
+          <div class="setting-group">
+            <span class="setting-label">Opponent</span>
+            <button class="setting-btn ${this.opponent === 'player' ? 'active' : ''}" @click=${() => this.setOpponent('player')}>Player</button>
+            <button class="setting-btn ${this.opponent === 'ai' ? 'active' : ''}" @click=${() => this.setOpponent('ai')}>AI</button>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">Mode</span>
+            <button class="setting-btn ${this.gameMode === 'classic' ? 'active' : ''}" @click=${() => this.setGameMode('classic')}>Classic</button>
+            <button class="setting-btn ${this.gameMode === 'gravity' ? 'active' : ''}" @click=${() => this.setGameMode('gravity')}>Gravity</button>
+          </div>
+        </div>
+
+        <div class="scoreboard">
+          <span>X (YOU): ${this.stats.x}</span>
+          <span class="divider">|</span>
+          <span>O (${this.opponent === 'ai' ? 'AI' : 'P2'}): ${this.stats.o}</span>
+          <span class="divider">|</span>
+          <span>DRAWS: ${this.stats.draws}</span>
+        </div>
+
         <div class="status">${this.getStatusMessage()}</div>
         <div class="board-container">
-          <div class="board">
+          <div class="board ${this.isAiThinking ? 'thinking' : ''}">
             ${this.board.map((player, index) => html`
               <button
                 class="cell ${player ? player.toLowerCase() : ''} ${this.winningCombination?.includes(index) ? 'win' : ''}"
                 @click=${() => this.handleCellClick(index)}
-                ?disabled=${!!player || !!this.winner}
+                ?disabled=${!!player || !!this.winner || this.isDraw || this.isAiThinking || (this.opponent === 'ai' && this.currentPlayer === 'O')}
                 aria-label="Cell ${index + 1}, ${player ? 'played by ' + player : 'empty'}"
               >
                 ${player || ''}
@@ -494,7 +701,7 @@ export class TicTacToeGame extends LitElement {
             </svg>
           ` : ''}
         </div>
-        <button class="restart-button" @click=${this.restartGame}>Restart Game</button>
+        <button class="restart-button" @click=${() => this.restartGame()}>Restart Game</button>
       </div>
     `;
   }
