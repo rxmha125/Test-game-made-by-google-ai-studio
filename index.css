@@ -1,0 +1,28 @@
+:root {
+  --board-size: min(80vw, 500px);
+  --cell-size: calc(var(--board-size) / 3);
+  --background-color: #1a2a33;
+  --grid-color: #10212a;
+  --x-color: #31c3bd;
+  --o-color: #f2b137;
+  --text-color: #a8bec9;
+  --win-color: #f2b137;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+}
